@@ -1,0 +1,6 @@
+build/
+*.elf
+*.wps
+*.map
+.DS_Store
+._*
