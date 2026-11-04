@@ -16,12 +16,12 @@ Open the Aroma plugin menu (L + Down + Minus). There is one item, "Home on the T
 The plugin hooks `GX2CopyColorBufferToScanBuffer` and swaps the TV and GamePad scan targets, but only when the running title is the Wii U Menu (`OSGetTitleID()` equals the title id from `_SYSGetSystemApplicationTitleId(SYSTEM_APP_ID_WII_U_MENU)`). Anti-aliased buffers are resolved first, as SwipSwapMe does. The decision logic lives in `source/logic.h` and has a host test.
 
 ## Limits
-- **Touch:** the GamePad now shows the plaza, so touching it does not reach the Home icons that are on the TV. Use the D-pad, the stick and the buttons.
+- **Touch is untested.** The GamePad shows the plaza, so there is no cursor on the TV. Navigate the Home with the D-pad, the stick and the buttons. The Home reads touch as GamePad coordinates, so touching the GamePad may act on the matching spot of the TV, blind; nobody has checked this yet.
 - **Audio** is not changed.
 - If you also use SwipSwapMe, its swap combo stacks with this one: pressing it in the Home cancels the swap, pressing it again brings it back.
 
 ## Status
-The author tested it on one console and the swap works in the Home. Please open an issue if it misbehaves on your setup, especially when moving between the Home, games and the HOME button menu.
+The author tested it on one console. The swap works in the Home, and opening a game, returning to the Home, pressing the HOME button inside a game, and opening the eShop and the browser from the Home all behave normally. Touch is untested (see Limits). Please open an issue if it misbehaves on your setup.
 
 ## Recovery
 Turn the item off in the plugin menu, or delete `homeswap.wps` from the plugins folder.
