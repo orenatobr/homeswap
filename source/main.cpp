@@ -20,7 +20,7 @@ static_assert(VPAD_BUTTON_X == kButtonX, "X button value changed");
 
 WUPS_PLUGIN_NAME("HomeSwap");
 WUPS_PLUGIN_DESCRIPTION("Home on the TV, Mii plaza on the GamePad (Wii U Menu only)");
-WUPS_PLUGIN_VERSION("v0.1.0");
+WUPS_PLUGIN_VERSION("v0.2.0");
 WUPS_PLUGIN_AUTHOR("orenatobr");
 WUPS_PLUGIN_LICENSE("GPLv3");
 
