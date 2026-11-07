@@ -83,7 +83,10 @@ DECL_FUNCTION(int32_t, VPADRead, VPADChan chan, VPADStatus *buffers, uint32_t co
 
     if (chan == VPAD_CHAN_0 && error == VPAD_READ_SUCCESS && result > 0) {
         for (int32_t i = 0; i < result; i++) {
-            sXToggleOn = toggleAfterInput(sXToggleOn, sInHome, sConfigOpen, buffers[i].trigger);
+            sXToggleOn        = toggleAfterInput(sXToggleOn, sInHome, sConfigOpen, buffers[i].trigger);
+            buffers[i].hold    = withoutX(buffers[i].hold, sInHome, sConfigOpen);
+            buffers[i].trigger = withoutX(buffers[i].trigger, sInHome, sConfigOpen);
+            buffers[i].release = withoutX(buffers[i].release, sInHome, sConfigOpen);
         }
     }
     return result;

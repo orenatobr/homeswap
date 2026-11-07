@@ -24,5 +24,11 @@ int main()
     assert(toggleAfterInput(true, true, false, 0x1) == true);                // another button
     assert(toggleAfterInput(true, false, false, kButtonX) == true);          // game or other app: ignored
     assert(toggleAfterInput(true, true, true, kButtonX) == true);            // config menu open: ignored
+
+    // X belongs to the plugin in the Home, so the menu never sees it; elsewhere it passes through.
+    assert(withoutX(kButtonX | 0x1, true, false) == 0x1);        // Home: X removed, other buttons kept
+    assert(withoutX(kButtonX, true, false) == 0);
+    assert(withoutX(kButtonX | 0x1, false, false) == (kButtonX | 0x1)); // game or other app: untouched
+    assert(withoutX(kButtonX | 0x1, true, true) == (kButtonX | 0x1));   // config menu open: untouched
     return 0;
 }
