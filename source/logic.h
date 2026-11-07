@@ -15,13 +15,25 @@ inline bool shouldSwap(bool enabled, bool configOpen, bool inHome, bool xToggleO
     return enabled && !configOpen && inHome && xToggleOn;
 }
 
-// X, just pressed in the Wii U Menu, flips the toggle; everything else leaves it alone.
+// In the Wii U Menu, with the config menu closed, X belongs to the plugin.
+inline bool xIsOurs(bool inHome, bool configOpen)
+{
+    return inHome && !configOpen;
+}
+
+// X, just pressed where it is ours, flips the toggle; everything else leaves it alone.
 inline bool toggleAfterInput(bool xToggleOn, bool inHome, bool configOpen, uint32_t trigger)
 {
-    if (inHome && !configOpen && (trigger & kButtonX)) {
+    if (xIsOurs(inHome, configOpen) && (trigger & kButtonX)) {
         return !xToggleOn;
     }
     return xToggleOn;
+}
+
+// The menu has its own X (it swaps the screens too), so hide X from it where the plugin uses it.
+inline uint32_t withoutX(uint32_t buttons, bool inHome, bool configOpen)
+{
+    return xIsOurs(inHome, configOpen) ? (buttons & ~kButtonX) : buttons;
 }
 
 // TV <-> GamePad when swapping; any other target (or no swap) is left as is.
@@ -37,4 +49,11 @@ inline uint32_t swappedTarget(bool swap, uint32_t target)
         return kScanTV;
     }
     return target;
+}
+
+// The AA scratch buffer is kept between frames. It can serve a request that is not bigger
+// and not more strictly aligned (alignments are powers of two). Nothing allocated yet: no.
+inline bool canReuseScratch(uint32_t haveSize, uint32_t haveAlign, uint32_t needSize, uint32_t needAlign)
+{
+    return haveSize != 0 && haveSize >= needSize && haveAlign >= needAlign;
 }

@@ -10,7 +10,7 @@ An [Aroma](https://aroma.foryour.cafe) (WUPS) plugin that swaps the two screens 
 It needs the `MemoryMappingModule`, which comes with Aroma.
 
 ## Toggle with X
-In the Wii U Menu, press **X** on the GamePad to turn the swap off: the Home goes back to the GamePad and the Mii plaza to the TV, the original behavior. Press **X** again to bring the Home back to the TV. The choice is not saved, so every boot starts with the swap on. X is ignored in games, in other apps and while the plugin menu is open.
+In the Wii U Menu, press **X** on the GamePad to turn the swap off: the Home goes back to the GamePad and the Mii plaza to the TV, the original behavior. Press **X** again to bring the Home back to the TV. The choice is not saved, so every boot starts with the swap on. The plugin takes X for itself in the Home, so the menu's own X (which also swaps the screens) never sees it. X is untouched in games, in other apps and while the plugin menu is open.
 
 ## Settings
 Open the Aroma plugin menu (L + Down + Minus). There is one item, "Home on the TV (Wii U Menu only)". While that menu is open the swap is off, so the menu shows on its usual screens.
