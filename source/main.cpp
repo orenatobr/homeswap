@@ -8,6 +8,7 @@
 #include <gx2/surface.h>
 #include <memory/mappedmemory.h>
 #include <sysapp/title.h>
+#include <vpad/input.h>
 #include <wups.h>
 #include <wups/config/WUPSConfigItemBoolean.h>
 #include <wups/config_api.h>
@@ -15,6 +16,7 @@
 #include "logic.h"
 
 static_assert(GX2_SCAN_TARGET_TV == kScanTV && GX2_SCAN_TARGET_DRC == kScanDRC, "scan target values changed");
+static_assert(VPAD_BUTTON_X == kButtonX, "X button value changed");
 
 WUPS_PLUGIN_NAME("HomeSwap");
 WUPS_PLUGIN_DESCRIPTION("Home on the TV, Mii plaza on the GamePad (Wii U Menu only)");
@@ -27,6 +29,7 @@ WUPS_USE_STORAGE("HomeSwap");
 static bool sEnabled    = true;
 static bool sConfigOpen = false; // keep the Aroma config menu on its usual screens
 static bool sInHome     = false;
+static bool sXToggleOn  = true; // X in the Home flips it; not saved, so every boot starts active
 static uint64_t sMenuTitleId = 0;
 
 static void enabledChanged(ConfigItemBoolean *, bool value)
@@ -70,9 +73,25 @@ ON_APPLICATION_START()
     sInHome = OSGetTitleID() == sMenuTitleId;
 }
 
+DECL_FUNCTION(int32_t, VPADRead, VPADChan chan, VPADStatus *buffers, uint32_t count, VPADReadError *outError)
+{
+    VPADReadError error = VPAD_READ_NO_SAMPLES;
+    const int32_t result = real_VPADRead(chan, buffers, count, &error);
+    if (outError != nullptr) {
+        *outError = error;
+    }
+
+    if (chan == VPAD_CHAN_0 && error == VPAD_READ_SUCCESS && result > 0) {
+        for (int32_t i = 0; i < result; i++) {
+            sXToggleOn = toggleAfterInput(sXToggleOn, sInHome, sConfigOpen, buffers[i].trigger);
+        }
+    }
+    return result;
+}
+
 DECL_FUNCTION(void, GX2CopyColorBufferToScanBuffer, GX2ColorBuffer *colorBuffer, GX2ScanTarget scan_target)
 {
-    const bool swap = shouldSwap(sEnabled, sConfigOpen, sInHome);
+    const bool swap = shouldSwap(sEnabled, sConfigOpen, sInHome, sXToggleOn);
     scan_target     = (GX2ScanTarget) swappedTarget(swap, (uint32_t) scan_target);
 
     if (swap && colorBuffer->surface.aa != GX2_AA_MODE1X) {
@@ -99,4 +118,5 @@ DECL_FUNCTION(void, GX2CopyColorBufferToScanBuffer, GX2ColorBuffer *colorBuffer,
     real_GX2CopyColorBufferToScanBuffer(colorBuffer, scan_target);
 }
 
+WUPS_MUST_REPLACE(VPADRead, WUPS_LOADER_LIBRARY_VPAD, VPADRead);
 WUPS_MUST_REPLACE(GX2CopyColorBufferToScanBuffer, WUPS_LOADER_LIBRARY_GX2, GX2CopyColorBufferToScanBuffer);
