@@ -92,6 +92,42 @@ DECL_FUNCTION(int32_t, VPADRead, VPADChan chan, VPADStatus *buffers, uint32_t co
     return result;
 }
 
+// Scratch surface for the AA resolve, kept between frames: allocating and freeing a few MB
+// of mapped memory on every frame fragments the heap and shows up as occasional stutter.
+// Only the GX2 render thread touches it. The GPU runs commands in order, so overwriting it
+// on the next frame cannot race with the previous copy.
+static void *sScratch          = nullptr;
+static uint32_t sScratchSize   = 0;
+static uint32_t sScratchAlign  = 0;
+
+static void freeScratch()
+{
+    if (sScratch != nullptr) {
+        MEMFreeToMappedMemory(sScratch);
+        sScratch      = nullptr;
+        sScratchSize  = 0;
+        sScratchAlign = 0;
+    }
+}
+
+static void *scratchFor(uint32_t size, uint32_t align)
+{
+    if (!canReuseScratch(sScratchSize, sScratchAlign, size, align)) {
+        freeScratch();
+        sScratch = MEMAllocFromMappedMemoryForGX2Ex(size, align);
+        if (sScratch != nullptr) {
+            sScratchSize  = size;
+            sScratchAlign = align;
+        }
+    }
+    return sScratch;
+}
+
+ON_APPLICATION_ENDS()
+{
+    freeScratch();
+}
+
 DECL_FUNCTION(void, GX2CopyColorBufferToScanBuffer, GX2ColorBuffer *colorBuffer, GX2ScanTarget scan_target)
 {
     const bool swap = shouldSwap(sEnabled, sConfigOpen, sInHome, sXToggleOn);
@@ -103,7 +139,7 @@ DECL_FUNCTION(void, GX2CopyColorBufferToScanBuffer, GX2ColorBuffer *colorBuffer,
         tempSurface.aa         = GX2_AA_MODE1X;
         GX2CalcSurfaceSizeAndAlignment(&tempSurface);
 
-        tempSurface.image = MEMAllocFromMappedMemoryForGX2Ex(tempSurface.imageSize, tempSurface.alignment);
+        tempSurface.image = scratchFor(tempSurface.imageSize, tempSurface.alignment);
         if (tempSurface.image != nullptr) {
             GX2ResolveAAColorBuffer(colorBuffer, &tempSurface, 0, 0);
 
@@ -111,8 +147,6 @@ DECL_FUNCTION(void, GX2CopyColorBufferToScanBuffer, GX2ColorBuffer *colorBuffer,
             colorBuffer->surface  = tempSurface;
             real_GX2CopyColorBufferToScanBuffer(colorBuffer, scan_target);
             colorBuffer->surface = surfaceCpy;
-
-            MEMFreeToMappedMemory(tempSurface.image);
             return;
         }
         OSReport("HomeSwap: failed to allocate %d bytes to resolve AA\n", tempSurface.imageSize);

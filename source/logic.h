@@ -50,3 +50,10 @@ inline uint32_t swappedTarget(bool swap, uint32_t target)
     }
     return target;
 }
+
+// The AA scratch buffer is kept between frames. It can serve a request that is not bigger
+// and not more strictly aligned (alignments are powers of two). Nothing allocated yet: no.
+inline bool canReuseScratch(uint32_t haveSize, uint32_t haveAlign, uint32_t needSize, uint32_t needAlign)
+{
+    return haveSize != 0 && haveSize >= needSize && haveAlign >= needAlign;
+}

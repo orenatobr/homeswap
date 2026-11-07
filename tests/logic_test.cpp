@@ -30,5 +30,13 @@ int main()
     assert(withoutX(kButtonX, true, false) == 0);
     assert(withoutX(kButtonX | 0x1, false, false) == (kButtonX | 0x1)); // game or other app: untouched
     assert(withoutX(kButtonX | 0x1, true, true) == (kButtonX | 0x1));   // config menu open: untouched
+
+    // One scratch buffer is reused across frames while it is big enough and aligned enough.
+    assert(canReuseScratch(8192, 256, 8192, 256));   // same size
+    assert(canReuseScratch(8192, 256, 2048, 256));   // smaller request fits
+    assert(canReuseScratch(8192, 512, 2048, 256));   // stricter alignment satisfies a weaker one
+    assert(!canReuseScratch(2048, 256, 8192, 256));  // too small: grow
+    assert(!canReuseScratch(8192, 256, 2048, 512));  // alignment too weak: reallocate
+    assert(!canReuseScratch(0, 0, 2048, 256));       // nothing allocated yet
     return 0;
 }
