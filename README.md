@@ -10,21 +10,21 @@ An [Aroma](https://aroma.foryour.cafe) (WUPS) plugin that swaps the two screens 
 It needs the `MemoryMappingModule`, which comes with Aroma.
 
 ## Toggle with X
-In the Wii U Menu, press **X** on the GamePad to turn the swap off: the Home goes back to the GamePad and the Mii plaza to the TV, the original behavior. Press **X** again to bring the Home back to the TV. The choice is not saved, so every boot starts with the swap on. The plugin takes X for itself in the Home, so the menu's own X (which also swaps the screens) never sees it. X is untouched in games, in other apps and while the plugin menu is open.
+In the Wii U Menu, press **X** on the GamePad to switch the GamePad off for the Home. The Home stays on the TV and the Mii plaza stays on the GamePad, but the GamePad no longer controls anything: buttons, sticks and touch are ignored, so you can use a Pro Controller or a Wii Remote without the GamePad getting in the way. Press **X** again to give the GamePad its control back. X and HOME are the only buttons that still work while the GamePad is off. The choice is not saved, so every boot starts with the GamePad on. The plugin takes X for itself in the Home, so the menu's own X (which swaps the screens) never sees it. X is untouched in games, in other apps and while the plugin menu is open.
 
 ## Settings
 Open the Aroma plugin menu (L + Down + Minus). There is one item, "Home on the TV (Wii U Menu only)". While that menu is open the swap is off, so the menu shows on its usual screens.
 
 ## How it works
-The plugin hooks `VPADRead` to catch X and `GX2CopyColorBufferToScanBuffer` to swap the TV and GamePad scan targets, but only when the running title is the Wii U Menu (`OSGetTitleID()` equals the title id from `_SYSGetSystemApplicationTitleId(SYSTEM_APP_ID_WII_U_MENU)`). Anti-aliased buffers are resolved first, as SwipSwapMe does. The decision logic lives in `source/logic.h` and has a host test.
+The plugin hooks `VPADRead` to catch X (and to mute the GamePad while it is off) and `GX2CopyColorBufferToScanBuffer` to swap the TV and GamePad scan targets, but only when the running title is the Wii U Menu (`OSGetTitleID()` equals the title id from `_SYSGetSystemApplicationTitleId(SYSTEM_APP_ID_WII_U_MENU)`). Anti-aliased buffers are resolved first, as SwipSwapMe does. The decision logic lives in `source/logic.h` and has a host test.
 
 ## Limits
-- **Touch is untested.** The GamePad shows the plaza, so there is no cursor on the TV. Navigate the Home with the D-pad, the stick and the buttons. The Home reads touch as GamePad coordinates, so touching the GamePad may act on the matching spot of the TV, blind; nobody has checked this yet.
+- **Touch is untested.** The GamePad shows the plaza, so there is no cursor on the TV. Navigate the Home with the D-pad, the stick and the buttons. The Home reads touch as GamePad coordinates, so touching the GamePad may act on the matching spot of the TV, blind; nobody has checked this yet. With the GamePad switched off (X), touch is ignored.
 - **Audio** is not changed.
 - If you also use SwipSwapMe, its swap combo stacks with this one: pressing it in the Home cancels the swap, pressing it again brings it back.
 
 ## Status
-The author tested it on one console. The swap works in the Home, and opening a game, returning to the Home, pressing the HOME button inside a game, and opening the eShop and the browser from the Home all behave normally. Touch is untested (see Limits). Please open an issue if it misbehaves on your setup.
+The author tested v0.1.0 and v0.2.0 on one console. The swap works in the Home, and opening a game, returning to the Home, pressing the HOME button inside a game, and opening the eShop and the browser from the Home all behave normally. Touch is untested (see Limits). Please open an issue if it misbehaves on your setup.
 
 ## Recovery
 Turn the item off in the plugin menu, or delete `homeswap.wps` from the plugins folder.

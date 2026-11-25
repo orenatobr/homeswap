@@ -17,6 +17,7 @@
 
 static_assert(GX2_SCAN_TARGET_TV == kScanTV && GX2_SCAN_TARGET_DRC == kScanDRC, "scan target values changed");
 static_assert(VPAD_BUTTON_X == kButtonX, "X button value changed");
+static_assert(VPAD_BUTTON_HOME == kButtonHome, "HOME button value changed");
 
 WUPS_PLUGIN_NAME("HomeSwap");
 WUPS_PLUGIN_DESCRIPTION("Home on the TV, Mii plaza on the GamePad (Wii U Menu only)");
@@ -29,7 +30,7 @@ WUPS_USE_STORAGE("HomeSwap");
 static bool sEnabled    = true;
 static bool sConfigOpen = false; // keep the Aroma config menu on its usual screens
 static bool sInHome     = false;
-static bool sXToggleOn  = true; // X in the Home flips it; not saved, so every boot starts active
+static bool sPadOn      = true; // GamePad control in the Home; X flips it, not saved, so every boot starts on
 static uint64_t sMenuTitleId = 0;
 
 static void enabledChanged(ConfigItemBoolean *, bool value)
@@ -83,10 +84,19 @@ DECL_FUNCTION(int32_t, VPADRead, VPADChan chan, VPADStatus *buffers, uint32_t co
 
     if (chan == VPAD_CHAN_0 && error == VPAD_READ_SUCCESS && result > 0) {
         for (int32_t i = 0; i < result; i++) {
-            sXToggleOn        = toggleAfterInput(sXToggleOn, sInHome, sConfigOpen, buffers[i].trigger);
-            buffers[i].hold    = withoutX(buffers[i].hold, sInHome, sConfigOpen);
-            buffers[i].trigger = withoutX(buffers[i].trigger, sInHome, sConfigOpen);
-            buffers[i].release = withoutX(buffers[i].release, sInHome, sConfigOpen);
+            VPADStatus &s = buffers[i];
+            // X is read first, then hidden: it only flips the GamePad control.
+            sPadOn = toggleAfterInput(sPadOn, sInHome, sConfigOpen, s.trigger);
+            s.hold    = maskedButtons(s.hold, sPadOn, sInHome, sConfigOpen);
+            s.trigger = maskedButtons(s.trigger, sPadOn, sInHome, sConfigOpen);
+            s.release = maskedButtons(s.release, sPadOn, sInHome, sConfigOpen);
+            if (padLocked(sPadOn, sInHome, sConfigOpen)) {
+                s.leftStick  = {0.0f, 0.0f};
+                s.rightStick = {0.0f, 0.0f};
+                s.tpNormal.touched    = 0;
+                s.tpFiltered1.touched = 0;
+                s.tpFiltered2.touched = 0;
+            }
         }
     }
     return result;
@@ -130,7 +140,7 @@ ON_APPLICATION_ENDS()
 
 DECL_FUNCTION(void, GX2CopyColorBufferToScanBuffer, GX2ColorBuffer *colorBuffer, GX2ScanTarget scan_target)
 {
-    const bool swap = shouldSwap(sEnabled, sConfigOpen, sInHome, sXToggleOn);
+    const bool swap = shouldSwap(sEnabled, sConfigOpen, sInHome);
     scan_target     = (GX2ScanTarget) swappedTarget(swap, (uint32_t) scan_target);
 
     if (swap && colorBuffer->surface.aa != GX2_AA_MODE1X) {
