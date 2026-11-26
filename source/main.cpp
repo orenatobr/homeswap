@@ -20,7 +20,7 @@ static_assert(VPAD_BUTTON_X == kButtonX, "X button value changed");
 
 WUPS_PLUGIN_NAME("HomeSwap");
 WUPS_PLUGIN_DESCRIPTION("Home on the TV, Mii plaza on the GamePad (Wii U Menu only)");
-WUPS_PLUGIN_VERSION("v0.4.0");
+WUPS_PLUGIN_VERSION("v0.4.1");
 WUPS_PLUGIN_AUTHOR("orenatobr");
 WUPS_PLUGIN_LICENSE("GPLv3");
 
@@ -71,6 +71,7 @@ INITIALIZE_PLUGIN()
 ON_APPLICATION_START()
 {
     sInHome = OSGetTitleID() == sMenuTitleId;
+    sX      = XTracker{}; // the menu always opens in its normal layout, so the cycle restarts in A
 }
 
 DECL_FUNCTION(int32_t, VPADRead, VPADChan chan, VPADStatus *buffers, uint32_t count, VPADReadError *outError)

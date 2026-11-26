@@ -33,7 +33,7 @@ The plugin hooks `VPADRead` to catch X (and hide it from the menu in state A) an
 - State C depends on the menu's own X swap. It is untested on a console.
 
 ## Status
-The author tested it on one console. The swap works in the Home, and opening a game, returning to the Home, pressing the HOME button inside a game, and opening the eShop and the browser from the Home all behave normally. Touch is untested (see Limits). v0.3.0 made X lock the GamePad and kept the Home on the TV; that was a misreading and v0.3.1 went back to the screen swap. v0.4.0 adds the third layout (C), which needs a check on hardware: it relies on the menu's own X swapping the screens. Please open an issue if it misbehaves on your setup.
+The author tested it on one console. The swap works in the Home, and opening a game, returning to the Home, pressing the HOME button inside a game, and opening the eShop and the browser from the Home all behave normally. Touch is untested (see Limits). v0.3.0 made X lock the GamePad and kept the Home on the TV; that was a misreading and v0.3.1 went back to the screen swap. v0.4.0 adds the third layout (C), which needs a check on hardware: it relies on the menu's own X swapping the screens. v0.4.1 restarts the cycle in A every time the Wii U Menu starts, so a menu reopened after a game no longer inherits a stale layout. Please open an issue if it misbehaves on your setup.
 
 ## Recovery
 Turn the item off in the plugin menu, or delete `homeswap.wps` from the plugins folder.
