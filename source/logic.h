@@ -12,7 +12,7 @@ constexpr uint32_t kButtonX = 0x2000;
 //   PluginSwap (A): the plugin swaps the scan targets, so the TV streams the Home as the GamePad
 //                   draws it and the GamePad shows the Mii plaza.
 //   Original   (B): no swap; the TV shows the Mii plaza and the GamePad shows the Home.
-//   NativeSwap (C): no plugin swap; the menu swaps by itself (the plugin presses X for it), so the TV shows the Home
+//   NativeSwap (C): no plugin swap; the menu swaps by itself (its own X), so the TV shows the Home
 //                   as the menu draws it for the TV and the GamePad shows the Mii plaza.
 enum class XState : uint8_t { PluginSwap, Original, NativeSwap };
 
@@ -38,45 +38,38 @@ inline bool xIsOurs(bool inHome, bool configOpen)
     return inHome && !configOpen;
 }
 
-// The X state plus the countdown of the X press the plugin sends to the menu (0 = none).
+// One physical X press reaches the plugin several times (every reader of the GamePad gets the
+// same trigger, so a single press counts three times on the console). Presses closer than this
+// are the same press.
+constexpr uint64_t kPressDebounceMs = 300;
+
+// The X state, when the last press was counted, and what to do with the X of that press.
 struct XTracker {
-    XState state = XState::PluginSwap;
-    int inject   = 0;
+    XState state       = XState::PluginSwap;
+    uint64_t lastPress = 0;
+    bool havePress     = false;
+    bool passToMenu    = false;
 };
 
-// How many samples the plugin holds X for when it presses it for the menu.
-constexpr int kInjectSamples = 12;
-
-// Feeds one GamePad sample through the tracker. The plugin owns X in the Home: the physical X
-// never reaches the menu, in any state, so a press can never leak and move the menu out of step.
-// A press moves the state on; leaving B or C the plugin then presses X for the menu itself (one
-// trigger sample, kInjectSamples held, one release), so the menu runs its own swap. Anywhere X is
-// not ours, nothing changes.
-inline void trackX(XTracker &t, bool inHome, bool configOpen, uint32_t &hold, uint32_t &trigger, uint32_t &release)
+// Feeds one GamePad sample through the tracker. A fresh X press moves the state on once. Leaving
+// A the plugin handles the press and hides X from the menu; leaving B or C the press is passed on,
+// so the menu runs its own swap. The decision holds for every copy, hold and release of that
+// press. Anywhere X is not ours, nothing changes.
+inline void trackX(XTracker &t, uint64_t nowMs, bool inHome, bool configOpen, uint32_t &hold, uint32_t &trigger, uint32_t &release)
 {
     if (!xIsOurs(inHome, configOpen)) {
-        t.inject = 0;
         return;
     }
-    if (trigger & kButtonX) {
-        if (t.state != XState::PluginSwap) {
-            t.inject = kInjectSamples + 1;
-        }
-        t.state = nextXState(t.state);
+    if ((trigger & kButtonX) && (!t.havePress || nowMs - t.lastPress >= kPressDebounceMs)) {
+        t.havePress  = true;
+        t.lastPress  = nowMs;
+        t.passToMenu = t.state != XState::PluginSwap;
+        t.state      = nextXState(t.state);
     }
-    hold &= ~kButtonX;
-    trigger &= ~kButtonX;
-    release &= ~kButtonX;
-    if (t.inject > 0) {
-        if (t.inject == kInjectSamples + 1) {
-            hold |= kButtonX;
-            trigger |= kButtonX;
-        } else if (t.inject > 1) {
-            hold |= kButtonX;
-        } else {
-            release |= kButtonX;
-        }
-        t.inject--;
+    if (!t.passToMenu) {
+        hold &= ~kButtonX;
+        trigger &= ~kButtonX;
+        release &= ~kButtonX;
     }
 }
 
