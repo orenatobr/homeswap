@@ -12,7 +12,7 @@ constexpr uint32_t kButtonX = 0x2000;
 //   PluginSwap (A): the plugin swaps the scan targets, so the TV streams the Home as the GamePad
 //                   draws it and the GamePad shows the Mii plaza.
 //   Original   (B): no swap; the TV shows the Mii plaza and the GamePad shows the Home.
-//   NativeSwap (C): no plugin swap; the menu swaps by itself (its own X), so the TV shows the Home
+//   NativeSwap (C): no plugin swap; the menu swaps by itself (the plugin presses X for it), so the TV shows the Home
 //                   as the menu draws it for the TV and the GamePad shows the Mii plaza.
 enum class XState : uint8_t { PluginSwap, Original, NativeSwap };
 
@@ -38,35 +38,45 @@ inline bool xIsOurs(bool inHome, bool configOpen)
     return inHome && !configOpen;
 }
 
-// The X state plus whether the current X press is being hidden from the menu.
-// A press leaving A is hidden (the plugin handles the swap); a press leaving B or C is passed on,
-// so the menu runs its own swap. The choice is kept until X is let go, so hold and release agree
-// with the press even though the state has moved on.
+// The X state plus the countdown of the X press the plugin sends to the menu (0 = none).
 struct XTracker {
     XState state = XState::PluginSwap;
-    bool hiding  = false;
+    int inject   = 0;
 };
 
-// Feeds one GamePad sample through the tracker: moves the state on a fresh X press and removes X
-// from hold/trigger/release when it is being hidden. Anywhere X is not ours, nothing changes.
+// How many samples the plugin holds X for when it presses it for the menu.
+constexpr int kInjectSamples = 12;
+
+// Feeds one GamePad sample through the tracker. The plugin owns X in the Home: the physical X
+// never reaches the menu, in any state, so a press can never leak and move the menu out of step.
+// A press moves the state on; leaving B or C the plugin then presses X for the menu itself (one
+// trigger sample, kInjectSamples held, one release), so the menu runs its own swap. Anywhere X is
+// not ours, nothing changes.
 inline void trackX(XTracker &t, bool inHome, bool configOpen, uint32_t &hold, uint32_t &trigger, uint32_t &release)
 {
     if (!xIsOurs(inHome, configOpen)) {
-        t.hiding = false;
+        t.inject = 0;
         return;
     }
-    const bool held = (hold & kButtonX) != 0;
     if (trigger & kButtonX) {
-        t.hiding = t.state == XState::PluginSwap;
-        t.state  = nextXState(t.state);
+        if (t.state != XState::PluginSwap) {
+            t.inject = kInjectSamples + 1;
+        }
+        t.state = nextXState(t.state);
     }
-    if (t.hiding) {
-        hold &= ~kButtonX;
-        trigger &= ~kButtonX;
-        release &= ~kButtonX;
-    }
-    if (!held) {
-        t.hiding = false;
+    hold &= ~kButtonX;
+    trigger &= ~kButtonX;
+    release &= ~kButtonX;
+    if (t.inject > 0) {
+        if (t.inject == kInjectSamples + 1) {
+            hold |= kButtonX;
+            trigger |= kButtonX;
+        } else if (t.inject > 1) {
+            hold |= kButtonX;
+        } else {
+            release |= kButtonX;
+        }
+        t.inject--;
     }
 }
 
