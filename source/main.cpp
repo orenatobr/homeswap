@@ -3,6 +3,7 @@
 // The screen swap and the anti-aliasing workaround follow SwipSwapMe by Maschell (GPLv3);
 // the "only for one title" filter follows Better Settings by Fangal (GPLv3).
 #include <coreinit/debug.h>
+#include <coreinit/time.h>
 #include <coreinit/title.h>
 #include <gx2/enum.h>
 #include <gx2/surface.h>
@@ -20,7 +21,7 @@ static_assert(VPAD_BUTTON_X == kButtonX, "X button value changed");
 
 WUPS_PLUGIN_NAME("HomeSwap");
 WUPS_PLUGIN_DESCRIPTION("Home on the TV, Mii plaza on the GamePad (Wii U Menu only)");
-WUPS_PLUGIN_VERSION("v0.4.2");
+WUPS_PLUGIN_VERSION("v0.4.3");
 WUPS_PLUGIN_AUTHOR("orenatobr");
 WUPS_PLUGIN_LICENSE("GPLv3");
 
@@ -77,12 +78,12 @@ ON_APPLICATION_START()
 // What the plugin sees from the GamePad, saved to its config file (HomeSwap.json) when the first
 // sample arrives and on every X press, so a misbehaving console can be checked over FTP.
 static int32_t sSeenCalls = 0;
-static int32_t sSeenPresses = 0;
+static int32_t sSeenTriggers = 0;
 
 static void saveSeen()
 {
     WUPSStorageAPI::Store("seen_calls", sSeenCalls);
-    WUPSStorageAPI::Store("seen_x_presses", sSeenPresses);
+    WUPSStorageAPI::Store("seen_x_triggers", sSeenTriggers);
     WUPSStorageAPI::Store("seen_x_state", (int32_t) sX.state);
     WUPSStorageAPI::SaveStorage();
 }
@@ -102,10 +103,10 @@ DECL_FUNCTION(int32_t, VPADRead, VPADChan chan, VPADStatus *buffers, uint32_t co
         }
         for (int32_t i = 0; i < result; i++) {
             if (sInHome && (buffers[i].trigger & kButtonX)) {
-                sSeenPresses++;
+                sSeenTriggers++;
                 changed = true;
             }
-            trackX(sX, sInHome, sConfigOpen, buffers[i].hold, buffers[i].trigger, buffers[i].release);
+            trackX(sX, (uint64_t) OSTicksToMilliseconds(OSGetSystemTime()), sInHome, sConfigOpen, buffers[i].hold, buffers[i].trigger, buffers[i].release);
         }
         if (changed) {
             saveSeen();
