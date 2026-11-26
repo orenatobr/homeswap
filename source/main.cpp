@@ -20,7 +20,7 @@ static_assert(VPAD_BUTTON_X == kButtonX, "X button value changed");
 
 WUPS_PLUGIN_NAME("HomeSwap");
 WUPS_PLUGIN_DESCRIPTION("Home on the TV, Mii plaza on the GamePad (Wii U Menu only)");
-WUPS_PLUGIN_VERSION("v0.3.1");
+WUPS_PLUGIN_VERSION("v0.4.0");
 WUPS_PLUGIN_AUTHOR("orenatobr");
 WUPS_PLUGIN_LICENSE("GPLv3");
 
@@ -29,7 +29,7 @@ WUPS_USE_STORAGE("HomeSwap");
 static bool sEnabled    = true;
 static bool sConfigOpen = false; // keep the Aroma config menu on its usual screens
 static bool sInHome     = false;
-static bool sXToggleOn  = true; // X in the Home flips it; not saved, so every boot starts active
+static XTracker sX; // X in the Home cycles the three screen layouts; not saved, so every boot starts in A
 static uint64_t sMenuTitleId = 0;
 
 static void enabledChanged(ConfigItemBoolean *, bool value)
@@ -83,10 +83,7 @@ DECL_FUNCTION(int32_t, VPADRead, VPADChan chan, VPADStatus *buffers, uint32_t co
 
     if (chan == VPAD_CHAN_0 && error == VPAD_READ_SUCCESS && result > 0) {
         for (int32_t i = 0; i < result; i++) {
-            sXToggleOn        = toggleAfterInput(sXToggleOn, sInHome, sConfigOpen, buffers[i].trigger);
-            buffers[i].hold    = withoutX(buffers[i].hold, sInHome, sConfigOpen);
-            buffers[i].trigger = withoutX(buffers[i].trigger, sInHome, sConfigOpen);
-            buffers[i].release = withoutX(buffers[i].release, sInHome, sConfigOpen);
+            trackX(sX, sInHome, sConfigOpen, buffers[i].hold, buffers[i].trigger, buffers[i].release);
         }
     }
     return result;
@@ -130,7 +127,7 @@ ON_APPLICATION_ENDS()
 
 DECL_FUNCTION(void, GX2CopyColorBufferToScanBuffer, GX2ColorBuffer *colorBuffer, GX2ScanTarget scan_target)
 {
-    const bool swap = shouldSwap(sEnabled, sConfigOpen, sInHome, sXToggleOn);
+    const bool swap = shouldSwap(sEnabled, sConfigOpen, sInHome, sX.state);
     scan_target     = (GX2ScanTarget) swappedTarget(swap, (uint32_t) scan_target);
 
     if (swap && colorBuffer->surface.aa != GX2_AA_MODE1X) {

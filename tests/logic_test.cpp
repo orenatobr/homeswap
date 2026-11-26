@@ -3,12 +3,13 @@
 
 int main()
 {
-    // Only swaps in the Home, enabled, with the config menu closed and the X toggle on.
-    assert(shouldSwap(true, false, true, true));
-    assert(!shouldSwap(false, false, true, true)); // plugin disabled
-    assert(!shouldSwap(true, true, true, true));   // Aroma config menu open
-    assert(!shouldSwap(true, false, false, true)); // game or other app
-    assert(!shouldSwap(true, false, true, false)); // toggled off with X: original screens
+    // The plugin swaps only in state A, in the Home, enabled, with the config menu closed.
+    assert(shouldSwap(true, false, true, XState::PluginSwap));
+    assert(!shouldSwap(false, false, true, XState::PluginSwap)); // plugin disabled
+    assert(!shouldSwap(true, true, true, XState::PluginSwap));   // Aroma config menu open
+    assert(!shouldSwap(true, false, false, XState::PluginSwap)); // game or other app
+    assert(!shouldSwap(true, false, true, XState::Original));    // B: original screens
+    assert(!shouldSwap(true, false, true, XState::NativeSwap));  // C: the menu swaps by itself
 
     assert(swappedTarget(true, kScanTV) == kScanDRC);
     assert(swappedTarget(true, kScanDRC) == kScanTV);
@@ -16,20 +17,77 @@ int main()
     assert(swappedTarget(false, kScanDRC) == kScanDRC);
     assert(swappedTarget(true, kScanTV | kScanDRC) == (kScanTV | kScanDRC)); // combined targets untouched
 
-    // X flips the toggle only when it was just pressed, in the Home, with the config menu closed.
-    assert(toggleAfterInput(true, true, false, kButtonX) == false);          // on -> off
-    assert(toggleAfterInput(false, true, false, kButtonX) == true);          // off -> on
-    assert(toggleAfterInput(true, true, false, kButtonX | 0x1) == false);    // other buttons in the same frame
-    assert(toggleAfterInput(true, true, false, 0) == true);                  // nothing pressed
-    assert(toggleAfterInput(true, true, false, 0x1) == true);                // another button
-    assert(toggleAfterInput(true, false, false, kButtonX) == true);          // game or other app: ignored
-    assert(toggleAfterInput(true, true, true, kButtonX) == true);            // config menu open: ignored
+    // X cycles A -> B -> C -> A.
+    assert(nextXState(XState::PluginSwap) == XState::Original);
+    assert(nextXState(XState::Original) == XState::NativeSwap);
+    assert(nextXState(XState::NativeSwap) == XState::PluginSwap);
 
-    // X belongs to the plugin in the Home, so the menu never sees it; elsewhere it passes through.
-    assert(withoutX(kButtonX | 0x1, true, false) == 0x1);        // Home: X removed, other buttons kept
-    assert(withoutX(kButtonX, true, false) == 0);
-    assert(withoutX(kButtonX | 0x1, false, false) == (kButtonX | 0x1)); // game or other app: untouched
-    assert(withoutX(kButtonX | 0x1, true, true) == (kButtonX | 0x1));   // config menu open: untouched
+    // A press in the Home: A hides X from the menu, B and C pass it so the menu swaps natively.
+    {
+        XTracker t;
+        uint32_t hold = kButtonX | 0x1, trigger = kButtonX, release = 0;
+        trackX(t, true, false, hold, trigger, release);
+        assert(t.state == XState::Original);
+        assert(hold == 0x1 && trigger == 0);                  // A -> B: hidden
+        hold = kButtonX; trigger = kButtonX; release = 0;
+        trackX(t, true, false, hold, trigger, release);
+        assert(t.state == XState::NativeSwap);
+        assert(hold == kButtonX && trigger == kButtonX);      // B -> C: the menu gets it
+        hold = kButtonX; trigger = kButtonX; release = 0;
+        trackX(t, true, false, hold, trigger, release);
+        assert(t.state == XState::PluginSwap);
+        assert(hold == kButtonX && trigger == kButtonX);      // C -> A: the menu gets it
+    }
+
+    // A hidden press stays hidden while X is held and on release, even though the state moved on.
+    {
+        XTracker t;
+        uint32_t hold = kButtonX, trigger = kButtonX, release = 0;
+        trackX(t, true, false, hold, trigger, release);       // A -> B, hidden
+        hold = kButtonX; trigger = 0; release = 0;
+        trackX(t, true, false, hold, trigger, release);       // still held
+        assert(hold == 0 && t.state == XState::Original);
+        hold = 0; trigger = 0; release = kButtonX;
+        trackX(t, true, false, hold, trigger, release);       // let go
+        assert(release == 0 && t.state == XState::Original);
+        hold = kButtonX; trigger = kButtonX; release = 0;
+        trackX(t, true, false, hold, trigger, release);       // next press (B -> C) passes
+        assert(hold == kButtonX && trigger == kButtonX && t.state == XState::NativeSwap);
+    }
+
+    // A passed press stays passed while X is held and on release.
+    {
+        XTracker t{XState::Original, false};
+        uint32_t hold = kButtonX, trigger = kButtonX, release = 0;
+        trackX(t, true, false, hold, trigger, release);
+        hold = kButtonX; trigger = 0; release = 0;
+        trackX(t, true, false, hold, trigger, release);
+        assert(hold == kButtonX);
+        hold = 0; trigger = 0; release = kButtonX;
+        trackX(t, true, false, hold, trigger, release);
+        assert(release == kButtonX && t.state == XState::NativeSwap);
+    }
+
+    // Other buttons and the idle frame change nothing.
+    {
+        XTracker t;
+        uint32_t hold = 0x1, trigger = 0x1, release = 0;
+        trackX(t, true, false, hold, trigger, release);
+        assert(t.state == XState::PluginSwap && hold == 0x1 && trigger == 0x1);
+        hold = 0; trigger = 0;
+        trackX(t, true, false, hold, trigger, release);
+        assert(t.state == XState::PluginSwap);
+    }
+
+    // Outside the Home, or with the config menu open, X is untouched and the state stays.
+    {
+        XTracker t;
+        uint32_t hold = kButtonX, trigger = kButtonX, release = 0;
+        trackX(t, false, false, hold, trigger, release);      // game or other app
+        assert(t.state == XState::PluginSwap && hold == kButtonX && trigger == kButtonX);
+        trackX(t, true, true, hold, trigger, release);        // config menu open
+        assert(t.state == XState::PluginSwap && hold == kButtonX && trigger == kButtonX);
+    }
 
     // One scratch buffer is reused across frames while it is big enough and aligned enough.
     assert(canReuseScratch(8192, 256, 8192, 256));   // same size
